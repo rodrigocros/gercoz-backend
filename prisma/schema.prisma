@@ -61,7 +61,7 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  restaurant            Restaurant             @relation(fields: [restaurantId], references: [id])
+  restaurant            Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   refreshTokens         RefreshToken[]
   orders                Order[]
   ingredientPriceHistory IngredientPriceHistory[]
@@ -94,7 +94,7 @@ model Ingredient {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  restaurant   Restaurant             @relation(fields: [restaurantId], references: [id])
+  restaurant   Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   recipeItems  RecipeItem[]
   priceHistory IngredientPriceHistory[]
 
@@ -108,7 +108,7 @@ model IngredientPriceHistory {
   changedBy    String
   changedAt    DateTime @default(now())
 
-  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [changedBy], references: [id])
 }
 
@@ -119,7 +119,7 @@ model Category {
   sortOrder    Int      @default(0)
   isActive     Boolean  @default(true)
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   products   Product[]
 
   @@unique([restaurantId, name])
@@ -137,7 +137,7 @@ model Product {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  restaurant  Restaurant  @relation(fields: [restaurantId], references: [id])
+  restaurant  Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   category    Category?   @relation(fields: [categoryId], references: [id])
   recipeItems RecipeItem[]
   orderItems  OrderItem[]
@@ -172,7 +172,7 @@ model Order {
   updatedAt    DateTime    @updatedAt
   closedAt     DateTime?
 
-  restaurant Restaurant  @relation(fields: [restaurantId], references: [id])
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   user       User        @relation(fields: [createdBy], references: [id])
   items      OrderItem[]
 
