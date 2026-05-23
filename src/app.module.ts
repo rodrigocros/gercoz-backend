@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
+import { IngredientsModule } from './ingredients/ingredients.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -15,6 +16,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     CommonModule,
     AuthModule,
     RestaurantsModule,
+    IngredientsModule,
   ],
   providers: [
     {

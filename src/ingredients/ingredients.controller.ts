@@ -1,0 +1,52 @@
+import {
+  Controller, Get, Post, Patch, Delete,
+  Body, Param, Query, HttpCode, HttpStatus, UseGuards,
+} from '@nestjs/common';
+import { IngredientsService } from './ingredients.service';
+import { CreateIngredientDto } from './dto/create-ingredient.dto';
+import { UpdateIngredientDto } from './dto/update-ingredient.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from '@prisma/client';
+
+@Controller('ingredients')
+@UseGuards(RolesGuard)
+@Roles(UserRole.ADMIN)
+export class IngredientsController {
+  constructor(private ingredientsService: IngredientsService) {}
+
+  @Get()
+  async findAll(@Query() query: { isActive?: boolean; name?: string }) {
+    return this.ingredientsService.findAll(query);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.ingredientsService.findOne(id);
+  }
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  async create(
+    @Body() dto: CreateIngredientDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.ingredientsService.create(dto, user.userId);
+  }
+
+  @Patch(':id')
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateIngredientDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.ingredientsService.update(id, dto, user.userId);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id') id: string) {
+    return this.ingredientsService.remove(id);
+  }
+}
