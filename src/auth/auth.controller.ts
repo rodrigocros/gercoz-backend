@@ -17,13 +17,13 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  refresh(@Body('token') token: string) {
+  async refresh(@Body('token') token: string) {
     return this.authService.refresh(token);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  logout(@Body('token') token: string) {
+  async logout(@Body('token') token: string) {
     return this.authService.logout(token);
   }
 }
