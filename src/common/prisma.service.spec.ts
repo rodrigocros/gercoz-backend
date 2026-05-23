@@ -10,6 +10,7 @@ describe('PrismaService', () => {
       providers: [PrismaService],
     }).compile();
     service = module.get<PrismaService>(PrismaService);
+    await service.onModuleInit();
   });
 
   afterEach(async () => {
