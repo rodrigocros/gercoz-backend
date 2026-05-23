@@ -1,13 +1,192 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
+}
+
+enum UserRole {
+  ADMIN
+  CASHIER
+  COOK
+}
+
+enum Unit {
+  G
+  KG
+  ML
+  L
+  UN
+}
+
+enum OrderType {
+  MESA
+  BALCAO
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+model Restaurant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  phone       String?
+  address     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  ingredients Ingredient[]
+  categories  Category[]
+  products    Product[]
+  orders      Order[]
+}
+
+model User {
+  id           String    @id @default(cuid())
+  restaurantId String
+  name         String
+  email        String
+  password     String
+  role         UserRole  @default(CASHIER)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  restaurant            Restaurant             @relation(fields: [restaurantId], references: [id])
+  refreshTokens         RefreshToken[]
+  orders                Order[]
+  ingredientPriceHistory IngredientPriceHistory[]
+
+  @@unique([restaurantId, email])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Ingredient {
+  id           String    @id @default(cuid())
+  restaurantId String
+  name         String
+  description  String?
+  unit         Unit
+  costPrice    Float
+  supplier     String?
+  stock        Float     @default(0)
+  minStock     Float     @default(0)
+  expiryDate   DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  restaurant   Restaurant             @relation(fields: [restaurantId], references: [id])
+  recipeItems  RecipeItem[]
+  priceHistory IngredientPriceHistory[]
+
+  @@unique([restaurantId, name])
+}
+
+model IngredientPriceHistory {
+  id           String   @id @default(cuid())
+  ingredientId String
+  price        Float
+  changedBy    String
+  changedAt    DateTime @default(now())
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  user       User       @relation(fields: [changedBy], references: [id])
+}
+
+model Category {
+  id           String   @id @default(cuid())
+  restaurantId String
+  name         String
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  products   Product[]
+
+  @@unique([restaurantId, name])
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  restaurantId    String
+  categoryId      String?
+  name            String
+  description     String?
+  salePrice       Float
+  preparationTime Int      @default(15)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  restaurant  Restaurant  @relation(fields: [restaurantId], references: [id])
+  category    Category?   @relation(fields: [categoryId], references: [id])
+  recipeItems RecipeItem[]
+  orderItems  OrderItem[]
+
+  @@unique([restaurantId, name])
+}
+
+model RecipeItem {
+  id           String @id @default(cuid())
+  productId    String
+  ingredientId String
+  quantity     Float
+  unit         Unit
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@unique([productId, ingredientId])
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  restaurantId String
+  orderNumber  Int
+  type         OrderType
+  tableNumber  Int?
+  status       OrderStatus @default(PENDING)
+  notes        String?
+  discount     Float       @default(0)
+  createdBy    String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  closedAt     DateTime?
+
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id])
+  user       User        @relation(fields: [createdBy], references: [id])
+  items      OrderItem[]
+
+  @@unique([restaurantId, orderNumber])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Float
+  notes     String?
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
 }

@@ -5,3 +5,9 @@ node_modules
 /generated/prisma
 dist/
 build/
+
+# SQLite database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
