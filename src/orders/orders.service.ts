@@ -54,22 +54,51 @@ export class OrdersService {
     return order;
   }
 
+  private mapOrder(order: any) {
+    const items = order.items.map((item: any) => ({
+      id: item.id,
+      productId: item.productId,
+      name: item.product?.name ?? '',
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      notes: item.notes,
+    }));
+    const subtotal = items.reduce((s: number, i: any) => s + i.unitPrice * i.quantity, 0);
+    const discount = order.discount ?? 0;
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      type: order.type,
+      tableNumber: order.tableNumber,
+      status: order.status,
+      notes: order.notes,
+      items,
+      subtotal,
+      discount,
+      total: subtotal - discount,
+      createdAt: order.createdAt,
+      closedAt: order.closedAt,
+    };
+  }
+
   async findAll(filters: { status?: OrderStatus; type?: OrderType }) {
     const where: any = {};
     if (filters.status) where.status = filters.status;
     if (filters.type) where.type = filters.type;
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where,
-      include: { items: { include: { product: { include: { category: true } } } } },
+      include: { items: { include: { product: true } } },
       orderBy: { orderNumber: 'desc' },
     });
+    return orders.map((o) => this.mapOrder(o));
   }
 
   async findOne(id: string) {
-    return this.prisma.order.findUniqueOrThrow({
+    const order = await this.prisma.order.findUniqueOrThrow({
       where: { id },
-      include: { items: { include: { product: { include: { category: true } } } } },
+      include: { items: { include: { product: true } } },
     });
+    return this.mapOrder(order);
   }
 
   async updateStatus(id: string, status: OrderStatus, restaurantId: string) {
