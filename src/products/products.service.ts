@@ -6,12 +6,16 @@ import { UpdateProductDto } from './dto/update-product.dto';
 export interface ProductMetrics {
   id: string;
   name: string;
+  description?: string;
+  categoryId?: string;
   categoryName: string;
   costPrice: number;
   salePrice: number;
+  preparationTime: number;
   margin: number;
   marginPct: number;
   roi: number;
+  recipeItems: { ingredientId: string; quantity: number; unit: string }[];
 }
 
 @Injectable()
@@ -32,9 +36,12 @@ export class ProductsService {
   private calcMetrics(product: {
     id: string;
     name: string;
+    description?: string | null;
+    categoryId?: string | null;
     salePrice: number;
+    preparationTime: number;
     category?: { name: string } | null;
-    recipeItems: { quantity: number; ingredient: { costPrice: number } }[];
+    recipeItems: { ingredientId: string; quantity: number; unit: string; ingredient: { costPrice: number } }[];
   }): ProductMetrics {
     const costPrice = product.recipeItems.reduce(
       (sum, item) => sum + item.quantity * item.ingredient.costPrice,
@@ -46,12 +53,20 @@ export class ProductsService {
     return {
       id: product.id,
       name: product.name,
+      description: product.description ?? undefined,
+      categoryId: product.categoryId ?? undefined,
       categoryName: product.category?.name ?? 'Sem Categoria',
       costPrice,
       salePrice: product.salePrice,
+      preparationTime: product.preparationTime,
       margin,
       marginPct,
       roi,
+      recipeItems: product.recipeItems.map((item) => ({
+        ingredientId: item.ingredientId,
+        quantity: item.quantity,
+        unit: item.unit,
+      })),
     };
   }
 
@@ -102,12 +117,13 @@ export class ProductsService {
     };
   }
 
-  async create(dto: CreateProductDto) {
+  async create(dto: CreateProductDto, restaurantId: string) {
     const { recipeItems, ...productData } = dto;
     return this.prisma.$transaction(async (tx) => {
       return tx.product.create({
         data: {
           ...productData,
+          restaurantId,
           recipeItems: {
             create: recipeItems.map((item) => ({
               ingredientId: item.ingredientId,
@@ -115,7 +131,7 @@ export class ProductsService {
               unit: item.unit,
             })),
           },
-        } as any,
+        },
         include: { category: true, recipeItems: { include: { ingredient: true } } },
       });
     });

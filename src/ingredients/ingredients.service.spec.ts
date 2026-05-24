@@ -34,6 +34,20 @@ describe('IngredientsService', () => {
     service = module.get<IngredientsService>(IngredientsService);
   });
 
+  describe('create', () => {
+    it('should include restaurantId from caller in prisma create', async () => {
+      mockPrisma.ingredient.create.mockResolvedValue({ ...existingIngredient });
+      await service.create(
+        { name: 'Flour', unit: Unit.KG, costPrice: 2.5 },
+        'user-1',
+        'rest-1',
+      );
+      expect(mockPrisma.ingredient.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ restaurantId: 'rest-1' }),
+      });
+    });
+  });
+
   describe('update', () => {
     it('should emit ingredient.price_updated when costPrice changes', async () => {
       mockPrisma.ingredient.findFirst.mockResolvedValue(existingIngredient);

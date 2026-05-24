@@ -30,8 +30,8 @@ export class IngredientsService {
     return ingredient;
   }
 
-  async create(dto: CreateIngredientDto, _userId: string) {
-    return this.prisma.ingredient.create({ data: dto as any });
+  async create(dto: CreateIngredientDto, _userId: string, restaurantId: string) {
+    return this.prisma.ingredient.create({ data: { ...dto, restaurantId } });
   }
 
   async update(id: string, dto: UpdateIngredientDto, userId: string) {

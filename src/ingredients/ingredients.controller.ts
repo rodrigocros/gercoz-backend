@@ -17,8 +17,9 @@ export class IngredientsController {
   constructor(private ingredientsService: IngredientsService) {}
 
   @Get()
-  async findAll(@Query() query: { isActive?: boolean; name?: string }) {
-    return this.ingredientsService.findAll(query);
+  async findAll(@Query() query: { isActive?: string; name?: string }) {
+    const isActive = query.isActive !== undefined ? query.isActive === 'true' : undefined;
+    return this.ingredientsService.findAll({ isActive, name: query.name });
   }
 
   @Get(':id')
@@ -30,9 +31,9 @@ export class IngredientsController {
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() dto: CreateIngredientDto,
-    @CurrentUser() user: { userId: string },
+    @CurrentUser() user: { userId: string; restaurantId: string },
   ) {
-    return this.ingredientsService.create(dto, user.userId);
+    return this.ingredientsService.create(dto, user.userId, user.restaurantId);
   }
 
   @Patch(':id')
