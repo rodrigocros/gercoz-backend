@@ -45,8 +45,8 @@ export class AuthService {
     await this.prisma.refreshToken.deleteMany({ where: { token } });
   }
 
-  private async generateTokens(user: { id: string; restaurantId: string; role: string }) {
-    const payload = { sub: user.id, restaurantId: user.restaurantId, role: user.role };
+  private async generateTokens(user: { id: string; restaurantId: string; role: string; name: string }) {
+    const payload = { sub: user.id, restaurantId: user.restaurantId, role: user.role, name: user.name };
     const accessToken = await this.jwt.signAsync(payload, { expiresIn: '15m' });
 
     const rawToken = randomBytes(40).toString('hex');
