@@ -1,7 +1,9 @@
-export interface MenuProductDto {
+export interface MenuItemDto {
   id: string;
   name: string;
   description: string | null;
+  categoryId: string | null;
+  categoryName: string;
   salePrice: number;
   preparationTime: number;
   isActive: boolean;
@@ -9,5 +11,5 @@ export interface MenuProductDto {
 
 export interface MenuCategoryDto {
   category: string;
-  products: MenuProductDto[];
+  products: MenuItemDto[];
 }
