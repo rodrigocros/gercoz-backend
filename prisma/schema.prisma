@@ -34,47 +34,57 @@ enum OrderStatus {
 }
 
 model Restaurant {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  phone       String?
-  address     String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String           @id @default(cuid())
+  name         String
+  slug         String           @unique
+  phone        String?
+  address      String?
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
-  users       User[]
-  ingredients Ingredient[]
-  categories  Category[]
-  products    Product[]
-  orders      Order[]
+  members      UserRestaurant[]
+  ingredients  Ingredient[]
+  categories   Category[]
+  products     Product[]
+  orders       Order[]
 }
 
 model User {
-  id           String    @id @default(cuid())
-  restaurantId String
-  name         String
-  email        String
-  password     String
-  role         UserRole  @default(CASHIER)
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String           @id @default(cuid())
+  name          String
+  email         String           @unique
+  password      String
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
-  restaurant            Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  refreshTokens         RefreshToken[]
-  orders                Order[]
+  restaurants            UserRestaurant[]
+  refreshTokens          RefreshToken[]
+  orders                 Order[]
   ingredientPriceHistory IngredientPriceHistory[]
+}
 
-  @@unique([restaurantId, email])
+model UserRestaurant {
+  id           String     @id @default(cuid())
+  userId       String
+  restaurantId String
+  role         UserRole
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, restaurantId])
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  userId       String
+  restaurantId String
+  token        String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
