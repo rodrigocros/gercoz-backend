@@ -26,6 +26,10 @@ export class AuthService {
       include: { restaurant: true },
     });
 
+    if (memberships.length === 0) {
+      throw new ForbiddenException('Usuário sem acesso a nenhuma empresa');
+    }
+
     const partialToken = await this.jwt.signAsync(
       { sub: user.id, name: user.name, type: 'partial' },
       { expiresIn: '7d' },
@@ -64,12 +68,17 @@ export class AuthService {
       where: { userId_restaurantId: { userId: stored.userId, restaurantId: stored.restaurantId } },
     });
 
+    if (!membership) {
+      await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+      throw new UnauthorizedException('Membership revoked');
+    }
+
     await this.prisma.refreshToken.delete({ where: { id: stored.id } });
     return this.generateFullTokens(
       stored.user.id,
       stored.user.name,
       stored.restaurantId,
-      (membership?.role as string) ?? 'CASHIER',
+      membership.role as string,
     );
   }
 

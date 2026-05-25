@@ -81,6 +81,15 @@ describe('AuthService', () => {
       await expect(service.login({ email: 'admin@test.com', password: 'wrongpass' }))
         .rejects.toThrow(UnauthorizedException);
     });
+
+    it('should throw ForbiddenException when user has no empresa memberships', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(mockUser);
+      mockPrisma.userRestaurant.findMany.mockResolvedValue([]);
+
+      await expect(service.login({ email: 'admin@test.com', password: 'secret123' }))
+        .rejects.toThrow(ForbiddenException);
+      expect(mockJwt.signAsync).not.toHaveBeenCalled();
+    });
   });
 
   describe('selectEmpresa', () => {
@@ -138,6 +147,20 @@ describe('AuthService', () => {
       const result = await service.refresh('valid-token');
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
+    });
+
+    it('should throw UnauthorizedException and delete token when membership is null', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        restaurantId: 'rest-1',
+        expiresAt: new Date(Date.now() + 60_000),
+        user: mockUser,
+      });
+      mockPrisma.userRestaurant.findUnique.mockResolvedValue(null);
+      mockPrisma.refreshToken.delete.mockResolvedValue({});
+
+      await expect(service.refresh('valid-token')).rejects.toThrow(UnauthorizedException);
+      expect(mockPrisma.refreshToken.delete).toHaveBeenCalledWith({ where: { id: 'rt-1' } });
     });
   });
 
