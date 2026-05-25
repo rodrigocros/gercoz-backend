@@ -3,10 +3,10 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 
-type FullPayload = { sub: string; restaurantId: string; role: string; name: string; type: string };
+type PartialPayload = { sub: string; name: string; type: string };
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+export class PartialJwtStrategy extends PassportStrategy(Strategy, 'partial-jwt') {
   constructor(config: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -14,8 +14,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  validate(payload: FullPayload) {
-    if (payload.type !== 'full') throw new UnauthorizedException('Full token required');
-    return { userId: payload.sub, restaurantId: payload.restaurantId, role: payload.role, name: payload.name };
+  validate(payload: PartialPayload) {
+    if (payload.type !== 'partial') throw new UnauthorizedException('Partial token required');
+    return { userId: payload.sub, name: payload.name };
   }
 }
