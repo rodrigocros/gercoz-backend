@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 
 export interface ProductMetrics {
@@ -51,30 +51,31 @@ export class DashboardService {
     };
   }
 
-  async getAllProducts(): Promise<ProductMetrics[]> {
+  async getAllProducts(restaurantId: string): Promise<ProductMetrics[]> {
     const products = await this.prisma.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, restaurantId },
       include: { category: true, recipeItems: { include: { ingredient: true } } },
       orderBy: { name: 'asc' },
     });
     return products.map((p) => this.computeMetrics(p));
   }
 
-  async getOneProduct(id: string): Promise<ProductMetrics> {
-    const product = await this.prisma.product.findUniqueOrThrow({
-      where: { id },
+  async getOneProduct(id: string, restaurantId: string): Promise<ProductMetrics> {
+    const product = await this.prisma.product.findFirst({
+      where: { id, restaurantId },
       include: { category: true, recipeItems: { include: { ingredient: true } } },
     });
+    if (!product) throw new NotFoundException(`Product ${id} not found`);
     return this.computeMetrics(product);
   }
 
-  async getSummary() {
-    const metrics = await this.getAllProducts();
+  async getSummary(restaurantId: string) {
+    const metrics = await this.getAllProducts(restaurantId);
     const avgMarginPct = metrics.reduce((s, m) => s + m.marginPct, 0) / (metrics.length || 1);
     const avgRoi = metrics.reduce((s, m) => s + m.roi, 0) / (metrics.length || 1);
     const sorted = [...metrics].sort((a, b) => b.margin - a.margin);
 
-    const ingredients = await this.prisma.ingredient.findMany({ where: { isActive: true } });
+    const ingredients = await this.prisma.ingredient.findMany({ where: { isActive: true, restaurantId } });
     const lowStock = ingredients.filter((i) => i.stock <= i.minStock);
 
     return {
@@ -90,13 +91,13 @@ export class DashboardService {
     };
   }
 
-  async getTopProfitable(): Promise<ProductMetrics[]> {
-    const metrics = await this.getAllProducts();
+  async getTopProfitable(restaurantId: string): Promise<ProductMetrics[]> {
+    const metrics = await this.getAllProducts(restaurantId);
     return [...metrics].sort((a, b) => b.margin - a.margin).slice(0, 5);
   }
 
-  async getLowMargin(): Promise<ProductMetrics[]> {
-    const metrics = await this.getAllProducts();
+  async getLowMargin(restaurantId: string): Promise<ProductMetrics[]> {
+    const metrics = await this.getAllProducts(restaurantId);
     return metrics.filter((m) => m.marginPct < 30);
   }
 }

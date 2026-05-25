@@ -3,6 +3,7 @@ import { DashboardService } from './dashboard.service';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('dashboard')
 @UseGuards(RolesGuard)
@@ -11,17 +12,27 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('products')
-  async getAllProducts() { return this.dashboardService.getAllProducts(); }
+  async getAllProducts(@CurrentUser() user: { restaurantId: string }) {
+    return this.dashboardService.getAllProducts(user.restaurantId);
+  }
 
   @Get('products/:id')
-  async getOneProduct(@Param('id') id: string) { return this.dashboardService.getOneProduct(id); }
+  async getOneProduct(@Param('id') id: string, @CurrentUser() user: { restaurantId: string }) {
+    return this.dashboardService.getOneProduct(id, user.restaurantId);
+  }
 
   @Get('summary')
-  async getSummary() { return this.dashboardService.getSummary(); }
+  async getSummary(@CurrentUser() user: { restaurantId: string }) {
+    return this.dashboardService.getSummary(user.restaurantId);
+  }
 
   @Get('top-profitable')
-  async getTopProfitable() { return this.dashboardService.getTopProfitable(); }
+  async getTopProfitable(@CurrentUser() user: { restaurantId: string }) {
+    return this.dashboardService.getTopProfitable(user.restaurantId);
+  }
 
   @Get('low-margin')
-  async getLowMargin() { return this.dashboardService.getLowMargin(); }
+  async getLowMargin(@CurrentUser() user: { restaurantId: string }) {
+    return this.dashboardService.getLowMargin(user.restaurantId);
+  }
 }

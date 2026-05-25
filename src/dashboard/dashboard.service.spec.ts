@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { PrismaService } from '../common/prisma.service';
 
 const mockPrisma = {
-  product: { findMany: jest.fn(), findUniqueOrThrow: jest.fn() },
+  product: { findMany: jest.fn(), findFirst: jest.fn() },
   ingredient: { findMany: jest.fn() },
 };
 
@@ -68,9 +69,19 @@ describe('DashboardService', () => {
         id: 'p1', name: 'Pizza', salePrice: 45, category: { name: 'Pizzas' },
         recipeItems: [{ quantity: 0.4, ingredient: { costPrice: 4.5 } }],
       }]);
-      const result = await service.getAllProducts();
+      const result = await service.getAllProducts('rest-1');
       expect(result).toHaveLength(1);
       expect(result[0].costPrice).toBeCloseTo(1.8);
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isActive: true, restaurantId: 'rest-1' } }),
+      );
+    });
+  });
+
+  describe('getOneProduct', () => {
+    it('throws NotFoundException when product not in restaurant', async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(null);
+      await expect(service.getOneProduct('p-missing', 'rest-1')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -82,11 +93,14 @@ describe('DashboardService', () => {
         { id: 'p3', name: 'Low', salePrice: 100, category: { name: 'C' }, recipeItems: [{ quantity: 1, ingredient: { costPrice: 80 } }] },
       ]);
       mockPrisma.ingredient.findMany.mockResolvedValue([]);
-      const summary = await service.getSummary();
+      const summary = await service.getSummary('rest-1');
       expect(summary.totalProducts).toBe(3);
       expect(summary.highMarginCount).toBe(1);
       expect(summary.mediumMarginCount).toBe(1);
       expect(summary.lowMarginCount).toBe(1);
+      expect(mockPrisma.ingredient.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isActive: true, restaurantId: 'rest-1' } }),
+      );
     });
 
     it('identifies low stock ingredients', async () => {
@@ -95,7 +109,7 @@ describe('DashboardService', () => {
         { id: 'i1', name: 'Flour', stock: 2, minStock: 5 },
         { id: 'i2', name: 'Salt', stock: 10, minStock: 1 },
       ]);
-      const summary = await service.getSummary();
+      const summary = await service.getSummary('rest-1');
       expect(summary.ingredientsLowStock).toHaveLength(1);
       expect(summary.ingredientsLowStock[0].name).toBe('Flour');
     });
@@ -111,7 +125,7 @@ describe('DashboardService', () => {
         makeProduct('p1', 10), makeProduct('p2', 50), makeProduct('p3', 30),
         makeProduct('p4', 70), makeProduct('p5', 20), makeProduct('p6', 60),
       ]);
-      const result = await service.getTopProfitable();
+      const result = await service.getTopProfitable('rest-1');
       expect(result).toHaveLength(5);
       expect(result[0].margin).toBeCloseTo(70);
       expect(result[1].margin).toBeCloseTo(60);
