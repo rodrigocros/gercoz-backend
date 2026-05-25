@@ -2,23 +2,30 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../common/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 const mockUser = {
   id: 'user-1',
-  restaurantId: 'rest-1',
   email: 'admin@test.com',
   password: bcrypt.hashSync('secret123', 10),
-  role: 'ADMIN',
   isActive: true,
   name: 'Admin',
   createdAt: new Date(),
   updatedAt: new Date(),
 };
 
+const mockRestaurant = { id: 'rest-1', name: 'Restaurante Demo' };
+
+const mockUserRestaurant = {
+  restaurantId: 'rest-1',
+  role: 'ADMIN',
+  restaurant: mockRestaurant,
+};
+
 const mockPrisma = {
   user: { findFirst: jest.fn() },
+  userRestaurant: { findMany: jest.fn(), findUnique: jest.fn() },
   refreshToken: {
     create: jest.fn(),
     findUnique: jest.fn(),
@@ -47,12 +54,20 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('should return access and refresh tokens on valid credentials', async () => {
+    it('should return partialToken and empresas on valid credentials', async () => {
       mockPrisma.user.findFirst.mockResolvedValue(mockUser);
-      mockPrisma.refreshToken.create.mockResolvedValue({});
+      mockPrisma.userRestaurant.findMany.mockResolvedValue([mockUserRestaurant]);
+
       const result = await service.login({ email: 'admin@test.com', password: 'secret123' });
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('refreshToken');
+
+      expect(result).toHaveProperty('partialToken', 'signed-token');
+      expect(result.empresas).toEqual([
+        { id: 'rest-1', nome: 'Restaurante Demo', role: 'ADMIN' },
+      ]);
+      expect(mockJwt.signAsync).toHaveBeenCalledWith(
+        { sub: 'user-1', name: 'Admin', type: 'partial' },
+        { expiresIn: '7d' },
+      );
     });
 
     it('should throw UnauthorizedException when user not found', async () => {
@@ -68,6 +83,31 @@ describe('AuthService', () => {
     });
   });
 
+  describe('selectEmpresa', () => {
+    it('should return accessToken and refreshToken on valid restaurantId', async () => {
+      mockPrisma.userRestaurant.findUnique.mockResolvedValue({
+        ...mockUserRestaurant,
+        userId: 'user-1',
+      });
+      mockPrisma.refreshToken.create.mockResolvedValue({});
+
+      const result = await service.selectEmpresa('user-1', 'Admin', 'rest-1');
+
+      expect(result).toHaveProperty('accessToken', 'signed-token');
+      expect(result).toHaveProperty('refreshToken');
+      expect(mockJwt.signAsync).toHaveBeenCalledWith(
+        { sub: 'user-1', restaurantId: 'rest-1', role: 'ADMIN', name: 'Admin', type: 'full' },
+        { expiresIn: '15m' },
+      );
+    });
+
+    it('should throw ForbiddenException if user has no access to restaurantId', async () => {
+      mockPrisma.userRestaurant.findUnique.mockResolvedValue(null);
+      await expect(service.selectEmpresa('user-1', 'Admin', 'rest-other'))
+        .rejects.toThrow(ForbiddenException);
+    });
+  });
+
   describe('refresh', () => {
     it('should throw UnauthorizedException if refresh token not found', async () => {
       mockPrisma.refreshToken.findUnique.mockResolvedValue(null);
@@ -77,10 +117,27 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException if refresh token is expired', async () => {
       mockPrisma.refreshToken.findUnique.mockResolvedValue({
         id: 'rt-1',
+        restaurantId: 'rest-1',
         expiresAt: new Date(Date.now() - 1000),
         user: mockUser,
       });
       await expect(service.refresh('expired-token')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should return new tokens on valid refresh token', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        restaurantId: 'rest-1',
+        expiresAt: new Date(Date.now() + 60_000),
+        user: mockUser,
+      });
+      mockPrisma.userRestaurant.findUnique.mockResolvedValue({ role: 'ADMIN' });
+      mockPrisma.refreshToken.delete.mockResolvedValue({});
+      mockPrisma.refreshToken.create.mockResolvedValue({});
+
+      const result = await service.refresh('valid-token');
+      expect(result).toHaveProperty('accessToken');
+      expect(result).toHaveProperty('refreshToken');
     });
   });
 
