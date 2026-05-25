@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { MenuService } from './menu.service';
 import { PrismaService } from '../common/prisma.service';
 
 const mockPrisma = {
-  product: { findMany: jest.fn(), findUniqueOrThrow: jest.fn(), update: jest.fn() },
+  product: { findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
 };
 
 describe('MenuService', () => {
@@ -23,7 +24,7 @@ describe('MenuService', () => {
         { id: 'p1', name: 'X-Burguer', description: null, salePrice: 18, preparationTime: 15, isActive: true, categoryId: 'cat-1', category: { name: 'Lanches' } },
         { id: 'p2', name: 'Pizza', description: null, salePrice: 45, preparationTime: 25, isActive: true, categoryId: 'cat-2', category: { name: 'Pizzas' } },
       ]);
-      const result = await service.findAll();
+      const result = await service.findAll('rest-1');
       expect(result).toHaveLength(2);
       expect(result[0].categoryName).toBe('Lanches');
       expect(result[1].categoryName).toBe('Pizzas');
@@ -33,32 +34,37 @@ describe('MenuService', () => {
       mockPrisma.product.findMany.mockResolvedValue([
         { id: 'p1', name: 'Active', description: null, salePrice: 10, preparationTime: 5, isActive: true, categoryId: 'cat-1', category: { name: 'Cat' } },
       ]);
-      await service.findAll();
-      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { isActive: true } }));
+      await service.findAll('rest-1');
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { isActive: true, restaurantId: 'rest-1' } }));
     });
 
     it('assigns "Sem Categoria" for products without a category', async () => {
       mockPrisma.product.findMany.mockResolvedValue([
         { id: 'p1', name: 'Orphan', description: null, salePrice: 5, preparationTime: 5, isActive: true, categoryId: null, category: null },
       ]);
-      const result = await service.findAll();
+      const result = await service.findAll('rest-1');
       expect(result[0].categoryName).toBe('Sem Categoria');
     });
   });
 
   describe('toggle', () => {
     it('flips isActive from true to false', async () => {
-      mockPrisma.product.findUniqueOrThrow.mockResolvedValue({ id: 'p1', isActive: true });
+      mockPrisma.product.findFirst.mockResolvedValue({ id: 'p1', isActive: true });
       mockPrisma.product.update.mockResolvedValue({ id: 'p1', isActive: false });
-      await service.toggle('p1');
+      await service.toggle('p1', 'rest-1');
       expect(mockPrisma.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { isActive: false } });
     });
 
     it('flips isActive from false to true', async () => {
-      mockPrisma.product.findUniqueOrThrow.mockResolvedValue({ id: 'p1', isActive: false });
+      mockPrisma.product.findFirst.mockResolvedValue({ id: 'p1', isActive: false });
       mockPrisma.product.update.mockResolvedValue({ id: 'p1', isActive: true });
-      await service.toggle('p1');
+      await service.toggle('p1', 'rest-1');
       expect(mockPrisma.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { isActive: true } });
+    });
+
+    it('throws NotFoundException when product not in restaurant', async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(null);
+      await expect(service.toggle('p1', 'rest-1')).rejects.toThrow(NotFoundException);
     });
   });
 });

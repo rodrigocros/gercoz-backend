@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { MenuItemDto, MenuCategoryDto } from './dto/menu-category.dto';
 
@@ -6,9 +6,9 @@ import { MenuItemDto, MenuCategoryDto } from './dto/menu-category.dto';
 export class MenuService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(): Promise<MenuItemDto[]> {
+  async findAll(restaurantId: string): Promise<MenuItemDto[]> {
     const products = await this.prisma.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, restaurantId },
       include: { category: true },
       orderBy: [{ category: { sortOrder: 'asc' } }, { name: 'asc' }],
     });
@@ -25,9 +25,9 @@ export class MenuService {
     }));
   }
 
-  async findByCategory(categoryId: string): Promise<MenuCategoryDto | null> {
+  async findByCategory(categoryId: string, restaurantId: string): Promise<MenuCategoryDto | null> {
     const products = await this.prisma.product.findMany({
-      where: { isActive: true, categoryId },
+      where: { isActive: true, categoryId, restaurantId },
       include: { category: true },
       orderBy: { name: 'asc' },
     });
@@ -45,8 +45,9 @@ export class MenuService {
     };
   }
 
-  async toggle(productId: string): Promise<void> {
-    const product = await this.prisma.product.findUniqueOrThrow({ where: { id: productId } });
+  async toggle(productId: string, restaurantId: string): Promise<void> {
+    const product = await this.prisma.product.findFirst({ where: { id: productId, restaurantId } });
+    if (!product) throw new NotFoundException(`Product ${productId} not found`);
     await this.prisma.product.update({
       where: { id: productId },
       data: { isActive: !product.isActive },
