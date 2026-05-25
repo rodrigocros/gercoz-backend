@@ -25,7 +25,7 @@ export class OrdersService {
       const orderNumber = (last?.orderNumber ?? 0) + 1;
 
       const productIds = dto.items.map((i) => i.productId);
-      const products = await tx.product.findMany({ where: { id: { in: productIds } } });
+      const products = await tx.product.findMany({ where: { id: { in: productIds }, restaurantId } });
       const priceMap = new Map(products.map((p) => [p.id, p.salePrice]));
 
       return tx.order.create({
@@ -129,7 +129,8 @@ export class OrdersService {
   async addItem(orderId: string, item: { productId: string; quantity: number; notes?: string }, restaurantId: string) {
     const order = await this.prisma.order.findFirst({ where: { id: orderId, restaurantId } });
     if (!order) throw new NotFoundException(`Order ${orderId} not found`);
-    const product = await this.prisma.product.findUniqueOrThrow({ where: { id: item.productId } });
+    const product = await this.prisma.product.findFirst({ where: { id: item.productId, restaurantId } });
+    if (!product) throw new NotFoundException(`Product ${item.productId} not found`);
     return this.prisma.orderItem.create({
       data: { orderId, productId: item.productId, quantity: item.quantity, unitPrice: product.salePrice, notes: item.notes },
       include: { product: true },

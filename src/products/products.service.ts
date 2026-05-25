@@ -22,11 +22,12 @@ export interface ProductMetrics {
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async computeCost(productId: string): Promise<number> {
-    const product = await this.prisma.product.findUniqueOrThrow({
-      where: { id: productId },
+  async computeCost(productId: string, restaurantId: string): Promise<number> {
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, restaurantId },
       include: { recipeItems: { include: { ingredient: true } } },
     });
+    if (!product) throw new NotFoundException(`Product ${productId} not found`);
     return product.recipeItems.reduce(
       (sum, item) => sum + item.quantity * item.ingredient.costPrice,
       0,

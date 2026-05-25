@@ -31,20 +31,20 @@ describe('ProductsService', () => {
 
   describe('computeCost', () => {
     it('sums quantity * costPrice for all recipe items', async () => {
-      mockPrisma.product.findUniqueOrThrow.mockResolvedValue({
+      mockPrisma.product.findFirst.mockResolvedValue({
         id: 'prod-1',
         recipeItems: [
           { quantity: 0.5, ingredient: { costPrice: 10 } },
           { quantity: 2, ingredient: { costPrice: 3 } },
         ],
       });
-      const cost = await service.computeCost('prod-1');
+      const cost = await service.computeCost('prod-1', 'rest-1');
       expect(cost).toBe(11);
     });
 
     it('returns 0 when there are no recipe items', async () => {
-      mockPrisma.product.findUniqueOrThrow.mockResolvedValue({ id: 'prod-2', recipeItems: [] });
-      const cost = await service.computeCost('prod-2');
+      mockPrisma.product.findFirst.mockResolvedValue({ id: 'prod-2', recipeItems: [] });
+      const cost = await service.computeCost('prod-2', 'rest-1');
       expect(cost).toBe(0);
     });
   });

@@ -7,7 +7,7 @@ import { OrderType, OrderStatus } from '@prisma/client';
 
 const mockPrisma = {
   order: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn() },
-  product: { findMany: jest.fn(), findUniqueOrThrow: jest.fn() },
+  product: { findMany: jest.fn(), findFirst: jest.fn() },
   orderItem: { create: jest.fn(), delete: jest.fn() },
   $transaction: jest.fn(),
 };
