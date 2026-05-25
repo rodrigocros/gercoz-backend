@@ -36,12 +36,15 @@ describe('RestaurantsService', () => {
     ).rejects.toThrow(ConflictException);
   });
 
-  it('should create restaurant and admin user in a transaction', async () => {
+  it('should create restaurant, admin user and UserRestaurant in a transaction', async () => {
     mockPrisma.restaurant.findUnique.mockResolvedValue(null);
     const fakeRestaurant = { id: 'rest-1', slug: 'new-resto', name: 'New Resto' };
-    mockPrisma.$transaction.mockImplementation(async (fn) => fn({
+    const fakeUser = { id: 'u1' };
+    const userRestaurantCreate = jest.fn().mockResolvedValue({ userId: 'u1', restaurantId: 'rest-1', role: UserRole.ADMIN });
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) => fn({
       restaurant: { create: jest.fn().mockResolvedValue(fakeRestaurant) },
-      user: { create: jest.fn().mockResolvedValue({ id: 'u1', role: UserRole.ADMIN }) },
+      user: { create: jest.fn().mockResolvedValue(fakeUser) },
+      userRestaurant: { create: userRestaurantCreate },
     }));
 
     const result = await service.create({
@@ -53,6 +56,8 @@ describe('RestaurantsService', () => {
     });
 
     expect(result).toMatchObject({ id: 'rest-1', slug: 'new-resto' });
-    expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(userRestaurantCreate).toHaveBeenCalledWith({
+      data: { userId: 'u1', restaurantId: 'rest-1', role: UserRole.ADMIN },
+    });
   });
 });

@@ -21,14 +21,16 @@ export class RestaurantsService {
         data: { name: dto.restaurantName, slug: dto.slug },
       });
 
-      await tx.user.create({
+      const user = await tx.user.create({
         data: {
-          restaurantId: rest.id,
           name: dto.adminName,
           email: dto.adminEmail,
           password: hashedPassword,
-          role: UserRole.ADMIN,
         },
+      });
+
+      await tx.userRestaurant.create({
+        data: { userId: user.id, restaurantId: rest.id, role: UserRole.ADMIN },
       });
 
       return rest;
