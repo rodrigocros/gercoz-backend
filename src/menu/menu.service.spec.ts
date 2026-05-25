@@ -18,22 +18,20 @@ describe('MenuService', () => {
   });
 
   describe('findAll', () => {
-    it('groups active products by category', async () => {
+    it('returns flat list of active products with categoryName', async () => {
       mockPrisma.product.findMany.mockResolvedValue([
-        { id: 'p1', name: 'X-Burguer', description: null, salePrice: 18, preparationTime: 15, isActive: true, category: { name: 'Lanches' } },
-        { id: 'p2', name: 'Pizza', description: null, salePrice: 45, preparationTime: 25, isActive: true, category: { name: 'Pizzas' } },
-        { id: 'p3', name: 'X-Salada', description: null, salePrice: 20, preparationTime: 12, isActive: true, category: { name: 'Lanches' } },
+        { id: 'p1', name: 'X-Burguer', description: null, salePrice: 18, preparationTime: 15, isActive: true, categoryId: 'cat-1', category: { name: 'Lanches' } },
+        { id: 'p2', name: 'Pizza', description: null, salePrice: 45, preparationTime: 25, isActive: true, categoryId: 'cat-2', category: { name: 'Pizzas' } },
       ]);
       const result = await service.findAll();
       expect(result).toHaveLength(2);
-      const lanches = result.find((c) => c.category === 'Lanches');
-      expect(lanches).toBeDefined();
-      expect(lanches!.products).toHaveLength(2);
+      expect(result[0].categoryName).toBe('Lanches');
+      expect(result[1].categoryName).toBe('Pizzas');
     });
 
     it('only returns active products', async () => {
       mockPrisma.product.findMany.mockResolvedValue([
-        { id: 'p1', name: 'Active', description: null, salePrice: 10, preparationTime: 5, isActive: true, category: { name: 'Cat' } },
+        { id: 'p1', name: 'Active', description: null, salePrice: 10, preparationTime: 5, isActive: true, categoryId: 'cat-1', category: { name: 'Cat' } },
       ]);
       await service.findAll();
       expect(mockPrisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { isActive: true } }));
@@ -41,10 +39,10 @@ describe('MenuService', () => {
 
     it('assigns "Sem Categoria" for products without a category', async () => {
       mockPrisma.product.findMany.mockResolvedValue([
-        { id: 'p1', name: 'Orphan', description: null, salePrice: 5, preparationTime: 5, isActive: true, category: null },
+        { id: 'p1', name: 'Orphan', description: null, salePrice: 5, preparationTime: 5, isActive: true, categoryId: null, category: null },
       ]);
       const result = await service.findAll();
-      expect(result[0].category).toBe('Sem Categoria');
+      expect(result[0].categoryName).toBe('Sem Categoria');
     });
   });
 

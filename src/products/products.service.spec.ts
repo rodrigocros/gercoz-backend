@@ -57,7 +57,7 @@ describe('ProductsService', () => {
       mockPrisma.$transaction.mockImplementation(async (fn: any) =>
         fn({ product: { create: jest.fn().mockResolvedValue(createdProduct) } })
       );
-      const result = await service.create(dto as any);
+      const result = await service.create(dto as any, 'rest-1');
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       expect(result).toEqual(createdProduct);
     });
