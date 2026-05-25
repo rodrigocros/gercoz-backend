@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { OrdersGateway } from './orders.gateway';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -81,8 +81,8 @@ export class OrdersService {
     };
   }
 
-  async findAll(filters: { status?: OrderStatus; type?: OrderType }) {
-    const where: any = {};
+  async findAll(filters: { status?: OrderStatus; type?: OrderType }, restaurantId: string) {
+    const where: any = { restaurantId };
     if (filters.status) where.status = filters.status;
     if (filters.type) where.type = filters.type;
     const orders = await this.prisma.order.findMany({
@@ -93,26 +93,30 @@ export class OrdersService {
     return orders.map((o) => this.mapOrder(o));
   }
 
-  async findOne(id: string) {
-    const order = await this.prisma.order.findUniqueOrThrow({
-      where: { id },
+  async findOne(id: string, restaurantId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id, restaurantId },
       include: { items: { include: { product: true } } },
     });
+    if (!order) throw new NotFoundException(`Order ${id} not found`);
     return this.mapOrder(order);
   }
 
   async updateStatus(id: string, status: OrderStatus, restaurantId: string) {
+    const order = await this.prisma.order.findFirst({ where: { id, restaurantId } });
+    if (!order) throw new NotFoundException(`Order ${id} not found`);
     const isTerminal = status === OrderStatus.DELIVERED;
-    const order = await this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data: { status, ...(isTerminal ? { closedAt: new Date() } : {}) },
     });
-    this.gateway.emitStatusChanged(restaurantId, order);
-    return order;
+    this.gateway.emitStatusChanged(restaurantId, updated);
+    return updated;
   }
 
-  async cancel(id: string) {
-    const order = await this.prisma.order.findUniqueOrThrow({ where: { id } });
+  async cancel(id: string, restaurantId: string) {
+    const order = await this.prisma.order.findFirst({ where: { id, restaurantId } });
+    if (!order) throw new NotFoundException(`Order ${id} not found`);
     if (order.status !== OrderStatus.PENDING) {
       throw new BadRequestException('Only PENDING orders can be cancelled');
     }
@@ -122,7 +126,9 @@ export class OrdersService {
     });
   }
 
-  async addItem(orderId: string, item: { productId: string; quantity: number; notes?: string }) {
+  async addItem(orderId: string, item: { productId: string; quantity: number; notes?: string }, restaurantId: string) {
+    const order = await this.prisma.order.findFirst({ where: { id: orderId, restaurantId } });
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
     const product = await this.prisma.product.findUniqueOrThrow({ where: { id: item.productId } });
     return this.prisma.orderItem.create({
       data: { orderId, productId: item.productId, quantity: item.quantity, unitPrice: product.salePrice, notes: item.notes },
@@ -130,7 +136,9 @@ export class OrdersService {
     });
   }
 
-  async removeItem(orderId: string, itemId: string) {
+  async removeItem(orderId: string, itemId: string, restaurantId: string) {
+    const order = await this.prisma.order.findFirst({ where: { id: orderId, restaurantId } });
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
     return this.prisma.orderItem.delete({ where: { id: itemId, orderId } });
   }
 }

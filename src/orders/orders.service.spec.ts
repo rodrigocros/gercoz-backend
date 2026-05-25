@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../common/prisma.service';
 import { OrdersGateway } from './orders.gateway';
 import { OrderType, OrderStatus } from '@prisma/client';
 
 const mockPrisma = {
-  order: { findFirst: jest.fn(), findUniqueOrThrow: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn() },
+  order: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn() },
   product: { findMany: jest.fn(), findUniqueOrThrow: jest.fn() },
   orderItem: { create: jest.fn(), delete: jest.fn() },
   $transaction: jest.fn(),
@@ -88,8 +88,19 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('findAll', () => {
+    it('passes restaurantId to prisma where clause', async () => {
+      mockPrisma.order.findMany.mockResolvedValue([]);
+      await service.findAll({}, 'rest-1');
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ restaurantId: 'rest-1' }) }),
+      );
+    });
+  });
+
   describe('updateStatus', () => {
     it('sets closedAt when status is DELIVERED', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue({ id: 'o1', status: OrderStatus.PREPARING });
       mockPrisma.order.update.mockResolvedValue({ id: 'o1', status: OrderStatus.DELIVERED, closedAt: new Date() });
       await service.updateStatus('o1', OrderStatus.DELIVERED, 'rest-1');
       expect(mockPrisma.order.update).toHaveBeenCalledWith(expect.objectContaining({
@@ -98,18 +109,25 @@ describe('OrdersService', () => {
     });
 
     it('does not set closedAt for non-terminal statuses', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue({ id: 'o1', status: OrderStatus.PENDING });
       mockPrisma.order.update.mockResolvedValue({ id: 'o1', status: OrderStatus.PREPARING });
       await service.updateStatus('o1', OrderStatus.PREPARING, 'rest-1');
       const callData = mockPrisma.order.update.mock.calls[0][0].data;
       expect(callData).not.toHaveProperty('closedAt');
     });
+
+    it('throws NotFoundException when order not in restaurant', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue(null);
+      await expect(service.updateStatus('o1', OrderStatus.PREPARING, 'rest-other')).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('cancel', () => {
     it('cancels a PENDING order', async () => {
-      mockPrisma.order.findUniqueOrThrow.mockResolvedValue({ id: 'o1', status: OrderStatus.PENDING });
+      mockPrisma.order.findFirst.mockResolvedValue({ id: 'o1', status: OrderStatus.PENDING });
       mockPrisma.order.update.mockResolvedValue({ id: 'o1', status: OrderStatus.CANCELLED });
-      await service.cancel('o1');
+      await service.cancel('o1', 'rest-1');
       expect(mockPrisma.order.update).toHaveBeenCalledWith({
         where: { id: 'o1' },
         data: { status: OrderStatus.CANCELLED, closedAt: expect.any(Date) },
@@ -117,8 +135,14 @@ describe('OrdersService', () => {
     });
 
     it('throws BadRequestException when cancelling a non-PENDING order', async () => {
-      mockPrisma.order.findUniqueOrThrow.mockResolvedValue({ id: 'o1', status: OrderStatus.PREPARING });
-      await expect(service.cancel('o1')).rejects.toThrow(BadRequestException);
+      mockPrisma.order.findFirst.mockResolvedValue({ id: 'o1', status: OrderStatus.PREPARING });
+      await expect(service.cancel('o1', 'rest-1')).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when order not in restaurant', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue(null);
+      await expect(service.cancel('o1', 'rest-other')).rejects.toThrow(NotFoundException);
       expect(mockPrisma.order.update).not.toHaveBeenCalled();
     });
   });
