@@ -14,25 +14,41 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  async findAll() { return this.productsService.findAll(); }
+  async findAll(@CurrentUser() user: { restaurantId: string }) {
+    return this.productsService.findAll(user.restaurantId);
+  }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) { return this.productsService.findOne(id); }
+  async findOne(@Param('id') id: string, @CurrentUser() user: { restaurantId: string }) {
+    return this.productsService.findOne(id, user.restaurantId);
+  }
 
   @Get(':id/ficha-tecnica')
-  async getTechnicalSheet(@Param('id') id: string) { return this.productsService.getTechnicalSheet(id); }
+  async getTechnicalSheet(@Param('id') id: string, @CurrentUser() user: { restaurantId: string }) {
+    return this.productsService.getTechnicalSheet(id, user.restaurantId);
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() dto: CreateProductDto,
-    @CurrentUser() user: { userId: string; restaurantId: string },
-  ) { return this.productsService.create(dto, user.restaurantId); }
+    @CurrentUser() user: { restaurantId: string },
+  ) {
+    return this.productsService.create(dto, user.restaurantId);
+  }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateProductDto) { return this.productsService.update(id, dto); }
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateProductDto,
+    @CurrentUser() user: { restaurantId: string },
+  ) {
+    return this.productsService.update(id, dto, user.restaurantId);
+  }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string) { return this.productsService.remove(id); }
+  async remove(@Param('id') id: string, @CurrentUser() user: { restaurantId: string }) {
+    return this.productsService.remove(id, user.restaurantId);
+  }
 }

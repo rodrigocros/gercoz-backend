@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../common/prisma.service';
 
 const mockPrisma = {
   product: {
     findMany: jest.fn(),
+    findFirst: jest.fn(),
     findUniqueOrThrow: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -37,7 +39,7 @@ describe('ProductsService', () => {
         ],
       });
       const cost = await service.computeCost('prod-1');
-      expect(cost).toBe(11); // 0.5*10 + 2*3
+      expect(cost).toBe(11);
     });
 
     it('returns 0 when there are no recipe items', async () => {
@@ -73,24 +75,33 @@ describe('ProductsService', () => {
           { quantity: 0.1, ingredient: { costPrice: 35 } },
         ],
       }]);
-      const result = await service.findAll();
+      const result = await service.findAll('rest-1');
       expect(result[0].costPrice).toBeCloseTo(5);
       expect(result[0].margin).toBeCloseTo(13);
       expect(result[0].marginPct).toBeCloseTo(72.22, 1);
       expect(result[0].roi).toBeCloseTo(260);
+    });
+
+    it('passes restaurantId to prisma where clause', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([]);
+      await service.findAll('rest-1');
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ restaurantId: 'rest-1' }) }),
+      );
     });
   });
 
   describe('update', () => {
     it('deletes and recreates recipe items when recipeItems is provided', async () => {
       const dto = { name: 'Updated', recipeItems: [{ ingredientId: 'ing-1', quantity: 1, unit: 'UN' }] };
+      mockPrisma.product.findFirst.mockResolvedValue({ id: 'prod-1' });
       mockPrisma.$transaction.mockImplementation(async (fn: any) =>
         fn({
           recipeItem: { deleteMany: jest.fn() },
           product: { update: jest.fn().mockResolvedValue({ id: 'prod-1', ...dto }) },
         })
       );
-      const result = await service.update('prod-1', dto as any);
+      const result = await service.update('prod-1', dto as any, 'rest-1');
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       expect(result.name).toBe('Updated');
     });
@@ -98,12 +109,19 @@ describe('ProductsService', () => {
 
   describe('remove', () => {
     it('soft deletes product by setting isActive=false', async () => {
+      mockPrisma.product.findFirst.mockResolvedValue({ id: 'prod-1' });
       mockPrisma.product.update.mockResolvedValue({ id: 'prod-1', isActive: false });
-      await service.remove('prod-1');
+      await service.remove('prod-1', 'rest-1');
       expect(mockPrisma.product.update).toHaveBeenCalledWith({
         where: { id: 'prod-1' },
         data: { isActive: false },
       });
+    });
+
+    it('throws NotFoundException when product not found in restaurant', async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(null);
+      await expect(service.remove('prod-x', 'rest-1')).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.product.update).not.toHaveBeenCalled();
     });
   });
 });

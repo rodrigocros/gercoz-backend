@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -70,27 +70,30 @@ export class ProductsService {
     };
   }
 
-  async findAll(): Promise<ProductMetrics[]> {
+  async findAll(restaurantId: string): Promise<ProductMetrics[]> {
     const products = await this.prisma.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, restaurantId },
       include: { category: true, recipeItems: { include: { ingredient: true } } },
       orderBy: { name: 'asc' },
     });
     return products.map((p) => this.calcMetrics(p));
   }
 
-  async findOne(id: string) {
-    return this.prisma.product.findUniqueOrThrow({
-      where: { id },
+  async findOne(id: string, restaurantId: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id, restaurantId },
       include: { category: true, recipeItems: { include: { ingredient: true } } },
     });
+    if (!product) throw new NotFoundException(`Product ${id} not found`);
+    return product;
   }
 
-  async getTechnicalSheet(id: string) {
-    const product = await this.prisma.product.findUniqueOrThrow({
-      where: { id },
+  async getTechnicalSheet(id: string, restaurantId: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id, restaurantId },
       include: { category: true, recipeItems: { include: { ingredient: true } } },
     });
+    if (!product) throw new NotFoundException(`Product ${id} not found`);
 
     const ingredients = product.recipeItems.map((item) => {
       const unitCost = item.ingredient.costPrice;
@@ -137,7 +140,10 @@ export class ProductsService {
     });
   }
 
-  async update(id: string, dto: UpdateProductDto) {
+  async update(id: string, dto: UpdateProductDto, restaurantId: string) {
+    const existing = await this.prisma.product.findFirst({ where: { id, restaurantId } });
+    if (!existing) throw new NotFoundException(`Product ${id} not found`);
+
     const { recipeItems, ...productData } = dto;
 
     if (recipeItems !== undefined) {
@@ -167,7 +173,9 @@ export class ProductsService {
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, restaurantId: string) {
+    const existing = await this.prisma.product.findFirst({ where: { id, restaurantId } });
+    if (!existing) throw new NotFoundException(`Product ${id} not found`);
     return this.prisma.product.update({
       where: { id },
       data: { isActive: false },
