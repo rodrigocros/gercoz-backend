@@ -17,14 +17,20 @@ export class IngredientsController {
   constructor(private ingredientsService: IngredientsService) {}
 
   @Get()
-  async findAll(@Query() query: { isActive?: string; name?: string }) {
+  async findAll(
+    @Query() query: { isActive?: string; name?: string },
+    @CurrentUser() user: { restaurantId: string },
+  ) {
     const isActive = query.isActive !== undefined ? query.isActive === 'true' : undefined;
-    return this.ingredientsService.findAll({ isActive, name: query.name });
+    return this.ingredientsService.findAll({ isActive, name: query.name }, user.restaurantId);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.ingredientsService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: { restaurantId: string },
+  ) {
+    return this.ingredientsService.findOne(id, user.restaurantId);
   }
 
   @Post()
@@ -40,14 +46,17 @@ export class IngredientsController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateIngredientDto,
-    @CurrentUser() user: { userId: string },
+    @CurrentUser() user: { userId: string; restaurantId: string },
   ) {
-    return this.ingredientsService.update(id, dto, user.userId);
+    return this.ingredientsService.update(id, dto, user.userId, user.restaurantId);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string) {
-    return this.ingredientsService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() user: { restaurantId: string },
+  ) {
+    return this.ingredientsService.remove(id, user.restaurantId);
   }
 }

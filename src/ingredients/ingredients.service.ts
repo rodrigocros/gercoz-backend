@@ -11,9 +11,10 @@ export class IngredientsService {
     private eventEmitter: EventEmitter2,
   ) {}
 
-  async findAll(query: { isActive?: boolean; name?: string }) {
+  async findAll(query: { isActive?: boolean; name?: string }, restaurantId: string) {
     return this.prisma.ingredient.findMany({
       where: {
+        restaurantId,
         ...(query.isActive !== undefined ? { isActive: query.isActive } : {}),
         ...(query.name ? { name: { contains: query.name } } : {}),
       },
@@ -21,9 +22,9 @@ export class IngredientsService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, restaurantId: string) {
     const ingredient = await this.prisma.ingredient.findFirst({
-      where: { id },
+      where: { id, restaurantId },
       include: { priceHistory: { orderBy: { changedAt: 'desc' }, take: 10 } },
     });
     if (!ingredient) throw new NotFoundException(`Ingredient ${id} not found`);
@@ -34,8 +35,8 @@ export class IngredientsService {
     return this.prisma.ingredient.create({ data: { ...dto, restaurantId } });
   }
 
-  async update(id: string, dto: UpdateIngredientDto, userId: string) {
-    const existing = await this.prisma.ingredient.findFirst({ where: { id } });
+  async update(id: string, dto: UpdateIngredientDto, userId: string, restaurantId: string) {
+    const existing = await this.prisma.ingredient.findFirst({ where: { id, restaurantId } });
     if (!existing) throw new NotFoundException(`Ingredient ${id} not found`);
 
     const dtoAny = dto as any;
@@ -60,8 +61,8 @@ export class IngredientsService {
     return updated;
   }
 
-  async remove(id: string) {
-    const existing = await this.prisma.ingredient.findFirst({ where: { id } });
+  async remove(id: string, restaurantId: string) {
+    const existing = await this.prisma.ingredient.findFirst({ where: { id, restaurantId } });
     if (!existing) throw new NotFoundException(`Ingredient ${id} not found`);
     return this.prisma.ingredient.update({ where: { id }, data: { isActive: false } });
   }

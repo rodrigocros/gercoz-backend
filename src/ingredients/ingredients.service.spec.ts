@@ -34,6 +34,16 @@ describe('IngredientsService', () => {
     service = module.get<IngredientsService>(IngredientsService);
   });
 
+  describe('findAll', () => {
+    it('passes restaurantId to prisma where clause', async () => {
+      mockPrisma.ingredient.findMany.mockResolvedValue([]);
+      await service.findAll({}, 'rest-1');
+      expect(mockPrisma.ingredient.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ restaurantId: 'rest-1' }) }),
+      );
+    });
+  });
+
   describe('create', () => {
     it('should include restaurantId from caller in prisma create', async () => {
       mockPrisma.ingredient.create.mockResolvedValue({ ...existingIngredient });
@@ -53,7 +63,7 @@ describe('IngredientsService', () => {
       mockPrisma.ingredient.findFirst.mockResolvedValue(existingIngredient);
       mockPrisma.ingredient.update.mockResolvedValue({ ...existingIngredient, costPrice: 3.5 });
       mockPrisma.ingredientPriceHistory.create.mockResolvedValue({});
-      await service.update('ing-1', { costPrice: 3.5 }, 'user-1');
+      await service.update('ing-1', { costPrice: 3.5 }, 'user-1', 'rest-1');
       expect(mockEventEmitter.emit).toHaveBeenCalledWith('ingredient.price_updated', { ingredientId: 'ing-1', newCostPrice: 3.5 });
     });
 
@@ -61,7 +71,7 @@ describe('IngredientsService', () => {
       mockPrisma.ingredient.findFirst.mockResolvedValue(existingIngredient);
       mockPrisma.ingredient.update.mockResolvedValue({ ...existingIngredient, costPrice: 4.0 });
       mockPrisma.ingredientPriceHistory.create.mockResolvedValue({});
-      await service.update('ing-1', { costPrice: 4.0 }, 'user-1');
+      await service.update('ing-1', { costPrice: 4.0 }, 'user-1', 'rest-1');
       expect(mockPrisma.ingredientPriceHistory.create).toHaveBeenCalledWith({
         data: { ingredientId: 'ing-1', price: 4.0, changedBy: 'user-1' },
       });
@@ -70,14 +80,14 @@ describe('IngredientsService', () => {
     it('should NOT emit event when costPrice is unchanged', async () => {
       mockPrisma.ingredient.findFirst.mockResolvedValue(existingIngredient);
       mockPrisma.ingredient.update.mockResolvedValue(existingIngredient);
-      await service.update('ing-1', { name: 'Wheat Flour' }, 'user-1');
+      await service.update('ing-1', { name: 'Wheat Flour' }, 'user-1', 'rest-1');
       expect(mockEventEmitter.emit).not.toHaveBeenCalled();
       expect(mockPrisma.ingredientPriceHistory.create).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if ingredient does not exist', async () => {
       mockPrisma.ingredient.findFirst.mockResolvedValue(null);
-      await expect(service.update('bad-id', { name: 'X' }, 'user-1')).rejects.toThrow(NotFoundException);
+      await expect(service.update('bad-id', { name: 'X' }, 'user-1', 'rest-1')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -85,13 +95,19 @@ describe('IngredientsService', () => {
     it('should soft delete ingredient by setting isActive=false', async () => {
       mockPrisma.ingredient.findFirst.mockResolvedValue(existingIngredient);
       mockPrisma.ingredient.update.mockResolvedValue({ ...existingIngredient, isActive: false });
-      await service.remove('ing-1');
+      await service.remove('ing-1', 'rest-1');
       expect(mockPrisma.ingredient.update).toHaveBeenCalledWith({ where: { id: 'ing-1' }, data: { isActive: false } });
     });
 
     it('should throw NotFoundException if ingredient does not exist', async () => {
       mockPrisma.ingredient.findFirst.mockResolvedValue(null);
-      await expect(service.remove('bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('bad-id', 'rest-1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('scopes removal to restaurantId', async () => {
+      mockPrisma.ingredient.findFirst.mockResolvedValue(null);
+      await expect(service.remove('ing-1', 'rest-other')).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.ingredient.update).not.toHaveBeenCalled();
     });
   });
 });
